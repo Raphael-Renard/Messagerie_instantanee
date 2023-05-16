@@ -194,8 +194,9 @@ int main(){
 
     
 
-	sem_destroy(&semaphore);
+	//sem_destroy(&semaphore);
     pthread_mutex_destroy(&mutex_id_client);
+    pthread_mutex_destroy(&mutex_write);
 
     for(int i = 0; i<NB_CLIENTS; i++) {
         if(pthread_join(client_threads[i], NULL) < 0) {
