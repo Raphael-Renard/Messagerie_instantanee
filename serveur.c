@@ -22,6 +22,8 @@ pthread_mutex_t mutex_write;//
 int compteur_client=0;
 int nb_connexions=0;
 
+int tableau_id_socket[NB_CLIENTS]={-10};
+
 int nombre_messages[NB_CLIENTS]={0};
 char tableau_messages[NB_CLIENTS][NB_MESSAGES][BUFF_SIZE];
 
@@ -57,7 +59,9 @@ void* client(void* arg){
         }
         
         // Attente d'un message du client
+
         if (read(sservice, message, BUFF_SIZE) <= 0) {
+        //if (read(secoute, message, BUFF_SIZE) <= 0) {
             break;
         }
  
@@ -77,10 +81,23 @@ void* client(void* arg){
         // Libération du verrou
         //sem_post(&semaphore);
 
+        char str_num_client[BUFF_SIZE];
+        sprintf(str_num_client, "%d", id_client);
+        char reponse[BUFF_SIZE]="Client ";
 
-    pthread_mutex_lock(&mutex_write);
-    write(sservice, message, BUFF_SIZE);
-    pthread_mutex_unlock(&mutex_write);
+        strcat(reponse, str_num_client);
+        strcat(reponse," : ");
+        strcat(reponse, message);
+
+        
+        for (int i;i<NB_CLIENTS;i++){
+            if (tableau_id_socket[i]!=-10 && tableau_id_socket[i]!=sservice){
+                pthread_mutex_lock(&mutex_write);
+                //write(sservice, reponse, BUFF_SIZE);
+                write(tableau_id_socket[i], reponse, BUFF_SIZE);
+                pthread_mutex_unlock(&mutex_write);
+            }
+        }
     }
     
     shutdown(sservice, SHUT_RDWR);
@@ -120,17 +137,14 @@ int main(){
         exit(1);
     }
 
-    // Initialisation du mutex et du semaphore
-    pthread_mutex_init(&mutex_id_client, NULL);//
-    pthread_mutex_init(&mutex_write, NULL);//
+    // Initialisation des mutex
+    pthread_mutex_init(&mutex_id_client, NULL);
+    pthread_mutex_init(&mutex_write, NULL);
     //sem_init(&semaphore, 0, 1);
 
     pthread_t client_threads[NB_CLIENTS];
     
 
-    //for (int i = 0; i < NB_CLIENTS; i++) {
-        //client_threads[i] = 0;
-    //}
 
     while(1){
 
@@ -141,54 +155,21 @@ int main(){
 
 		sservice = accept(secoute, (struct sockaddr*)&caddr,&caddrlen);
         
+        
         if (sservice<0){
 			perror("Erreur accept\n");
 			exit(1);
 		}
-        //else{
-            //nb_connexions++;
-        //}
 
-        // Trouver un emplacement libre dans le tableau des threads clients
-        //int index = -1;
-        //for (int i = 0; i < NB_CLIENTS; i++) {
-            //if (client_threads[i] == 0) {
-                //index = i;
-                //break;
-            //}
-        //}
+        tableau_id_socket[compteur_client]=sservice;
+
 
         //if (pthread_create(&client_threads[index], NULL, client, (void*)&sservice) < 0) {
         if (pthread_create(client_threads+compteur_client, NULL, client, (void*)&sservice) < 0) {
-                printf("bgdbdebfvd");
                 perror("Erreur pthread_create");
                 exit(1);
             }
-        printf("aa");
-        //else{nb_connexions++;}
 
-        
-    
-        //if (index == -1) {
-            // Le tableau des threads clients est plein, refuser la connexion
-            //printf("Connexion refusée : trop de clients.\n");
-            //close(sservice);
-        //} else {
-            // Créer un thread pour gérer la connexion client
-            //if (pthread_create(&client_threads[index], NULL, client, (void*)&sservice) < 0) {
-                //perror("Erreur pthread_create");
-                //exit(1);
-            //}
-        //}
-    
-    //for(int i = 0; i<NB_CLIENTS; i++) {
-        //if (client_threads[i] != 0) {
-        //if(pthread_join(client_threads[i], NULL) < 0) {
-            //perror("Erreur join thread");
-            //exit(1);
-        //}
-        //client_threads[i] = 0;
-        //}
     }
     
 
