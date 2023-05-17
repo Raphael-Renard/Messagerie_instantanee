@@ -51,17 +51,19 @@ void* client(void* arg){
     // Boucle principale du thread client
     char message[BUFF_SIZE]={0};
     while (1) {
-        if (nombre_messages[id_client]>=NB_MESSAGES)
-        {
-            printf("Trop de messages\n");
-            pthread_exit(NULL);
-        }
+        
+        
         
         // Attente d'un message du client
 
         if (read(sservice, message, BUFF_SIZE) <= 0) {
-        //if (read(secoute, message, BUFF_SIZE) <= 0) {
             break;
+        }
+
+        if (nombre_messages[id_client]>=NB_MESSAGES)
+        {
+            printf("Trop de messages\n");
+            pthread_exit(NULL);
         }
  
         // Affichage du message reçu
@@ -71,14 +73,7 @@ void* client(void* arg){
 
         nombre_messages[id_client]++;
 
-        // Attente du verrou pour écrire sur la socket
-        //sem_wait(&semaphore);
-
-        // Envoi du message de réponse
-        //write(sservice, message, BUFF_SIZE);
-
-        // Libération du verrou
-        //sem_post(&semaphore);
+ 
 
         char str_num_client[BUFF_SIZE];
         sprintf(str_num_client, "%d", id_client);

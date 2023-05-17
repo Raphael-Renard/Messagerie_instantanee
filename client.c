@@ -8,14 +8,32 @@
 #include <sys/un.h>
 #include <signal.h>
 #include <pthread.h>
+#include <sys/wait.h>
 
 #define BUFF_SIZE 1024
 
 int sclient;
+int pid_fils;
+int ind_att;
+
+void attente(int sign){
+    
+    //signal(sign,attente);
+
+    //wait(&status);
+    //if (waitpid(pid_fils,&status,0)==-1){
+    //if (wait(&status) == -1) {
+        //printf("erreur wait\n");
+        //exit(1);
+    //}
+    ind_att = 2;
+
+
+}
 
 void ecriture(int sign){
     char message[BUFF_SIZE];
-    signal(sign,ecriture);
+    //signal(sign,ecriture);
     // lecture du message à envoyer
     printf("\nEntrez un message à envoyer : ");
     fgets(message, BUFF_SIZE, stdin);
@@ -47,17 +65,70 @@ int main(){
     while(connect(sclient,(struct sockaddr*)&saddr,sizeof(saddr))==-1); //répète la méthode connect tant que ça ne marche pas
     printf("Connexion établie\n");
 
-    
-    while(1){
-        signal(SIGINT,ecriture);
 
-        // lecture de la réponse du serveur
-        if(read(sclient,message,BUFF_SIZE)==-1){
-            perror("Erreur read");
-            exit(1);
+
+    signal(SIGINT, attente);//
+
+    while(1){
+        int pid = fork();
+        if (pid<0){
+            printf("erreur fork\n");
+            pthread_exit(NULL);
+        }
+        else if (pid==0){//fils : on tape le message au clavier
+            // lecture du message à envoyer
+            printf("\nEntrez un message à envoyer : ");
+            fgets(message, BUFF_SIZE, stdin);
+                
+            // envoi du message au serveur
+
+            if(write(sclient,message,BUFF_SIZE)==-1){
+                perror("Erreur write");
+                exit(1);
+            }
+            pid_fils=getpid();
+            //exit(0);//
+
+        }else{//pere : affichage des messages des autres
+
+            if (ind_att==2){
+                    printf("aaa\n");
+                    int status;
+                    if (waitpid(pid_fils,&status,0) == -1) {
+                        printf("erreur wait\n");
+                        exit(1);
+                    }
+                    printf("bb\n");
+                    ind_att=0;
+                }
+
+            // lecture de la réponse du serveur
+            int read_result=read(sclient,message,BUFF_SIZE);
+            if(read_result==-1){
+                perror("Erreur read");
+                exit(1);
+            }
+            else if (read_result == 0) {
+                // La connexion avec le serveur est fermée
+                break;
+            }
+
+            printf("\nMessage reçu : %s\n", message);
+            //signal(SIGINT,attente);
+            
         }
 
-        printf("Message reçu : %s\n", message);
+
+        
+        //signal(SIGINT,ecriture);
+
+        // lecture de la réponse du serveur
+        //if(read(sclient,message,BUFF_SIZE)==-1){
+            //perror("Erreur read");
+            //exit(1);
+        //}
+
+        //printf("Message reçu : %s\n", message);
 
         //write(sclient,message,BUFF_SIZE);
         //read(sclient,message,BUFF_SIZE);
