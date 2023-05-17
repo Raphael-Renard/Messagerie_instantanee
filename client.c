@@ -17,7 +17,7 @@ void ecriture(int sign){
     char message[BUFF_SIZE];
     signal(sign,ecriture);
     // lecture du message à envoyer
-    printf("Entrez un message à envoyer : ");
+    printf("\nEntrez un message à envoyer : ");
     fgets(message, BUFF_SIZE, stdin);
         
     // envoi du message au serveur

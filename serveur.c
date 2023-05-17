@@ -22,13 +22,12 @@ pthread_mutex_t mutex_write;//
 int compteur_client=0;
 int nb_connexions=0;
 
-int tableau_id_socket[NB_CLIENTS]={-10};
+int tableau_id_socket[NB_CLIENTS]={[0 ... NB_CLIENTS-1]=-10};
 
 int nombre_messages[NB_CLIENTS]={0};
 char tableau_messages[NB_CLIENTS][NB_MESSAGES][BUFF_SIZE];
 
-// Sémaphore pour éviter que plusieurs threads n'écrivent en même temps
-sem_t semaphore;
+
 
 void* client(void* arg){
     int sservice = *((int*)arg);
@@ -89,9 +88,11 @@ void* client(void* arg){
         strcat(reponse," : ");
         strcat(reponse, message);
 
-        
-        for (int i;i<NB_CLIENTS;i++){
-            if (tableau_id_socket[i]!=-10 && tableau_id_socket[i]!=sservice){
+
+
+        for (int i=0;i<NB_CLIENTS;i++){
+
+            if (tableau_id_socket[i]!=-10 && tableau_id_socket[i]!=tableau_id_socket[id_client]){
                 pthread_mutex_lock(&mutex_write);
                 //write(sservice, reponse, BUFF_SIZE);
                 write(tableau_id_socket[i], reponse, BUFF_SIZE);
@@ -140,10 +141,9 @@ int main(){
     // Initialisation des mutex
     pthread_mutex_init(&mutex_id_client, NULL);
     pthread_mutex_init(&mutex_write, NULL);
-    //sem_init(&semaphore, 0, 1);
+
 
     pthread_t client_threads[NB_CLIENTS];
-    
 
 
     while(1){
@@ -164,7 +164,6 @@ int main(){
         tableau_id_socket[compteur_client]=sservice;
 
 
-        //if (pthread_create(&client_threads[index], NULL, client, (void*)&sservice) < 0) {
         if (pthread_create(client_threads+compteur_client, NULL, client, (void*)&sservice) < 0) {
                 perror("Erreur pthread_create");
                 exit(1);
@@ -173,9 +172,7 @@ int main(){
     }
     
 
-    
 
-	//sem_destroy(&semaphore);
     pthread_mutex_destroy(&mutex_id_client);
     pthread_mutex_destroy(&mutex_write);
 
