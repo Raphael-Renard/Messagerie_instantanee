@@ -13,7 +13,7 @@
 
 #define BUFF_SIZE 1024
 #define NB_CLIENTS 5
-#define NB_MESSAGES 10
+#define NB_MESSAGES 50
 
 
 // Mutex pour protéger la variable globale compteur_client
