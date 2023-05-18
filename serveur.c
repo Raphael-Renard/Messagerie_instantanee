@@ -12,27 +12,29 @@
 #include <semaphore.h>
 
 #define BUFF_SIZE 1024
-#define NB_CLIENTS 5
-#define NB_MESSAGES 50
+#define NB_CLIENTS 5 //nombre maximal de clients 
+#define NB_MESSAGES 50 //nombre maximal de messages par client
 
 
 // Mutex pour protéger la variable globale compteur_client
 pthread_mutex_t mutex_id_client;
-pthread_mutex_t mutex_write;//
+// Mutex pour éviter que plusieurs threads n'écrivent en même temps
+pthread_mutex_t mutex_write;
+
 int compteur_client=0;
 int nb_connexions=0;
 
-int tableau_id_socket[NB_CLIENTS]={[0 ... NB_CLIENTS-1]=-10};
+int tableau_id_socket[NB_CLIENTS]={[0 ... NB_CLIENTS-1]=-10}; //tableau contenant les id des sockets des clients
 
-int nombre_messages[NB_CLIENTS]={0};
-char tableau_messages[NB_CLIENTS][NB_MESSAGES][BUFF_SIZE];
+int nombre_messages[NB_CLIENTS]={0}; //nombre de messages postés par chaque client
+char tableau_messages[NB_CLIENTS][NB_MESSAGES][BUFF_SIZE]; //tableau contenant les messages de tous les clients
 
 
 
 void* client(void* arg){
     int sservice = *((int*)arg);
-    //pthread_detach(pthread_self());
-    if (compteur_client>=NB_CLIENTS) { ////
+
+    if (compteur_client>=NB_CLIENTS) {
             // Le tableau des threads clients est plein, refuser la connexion
             printf("Connexion refusée : trop de clients.\n");
             shutdown(sservice, SHUT_RDWR);
@@ -48,11 +50,9 @@ void* client(void* arg){
     // Affichage de l'ID client
     printf("Client %d connecté.\n", id_client);
 
-    // Boucle principale du thread client
+
     char message[BUFF_SIZE]={0};
     while (1) {
-        
-        
         
         // Attente d'un message du client
 
@@ -60,21 +60,21 @@ void* client(void* arg){
             break;
         }
 
-        if (nombre_messages[id_client]>=NB_MESSAGES)
+        if (nombre_messages[id_client]>=NB_MESSAGES) //si le nombre de messages max est dépassé
         {
-            printf("Trop de messages\n");
+            printf("Trop de messages pour le client %d\n",id_client);
             pthread_exit(NULL);
         }
  
         // Affichage du message reçu
         printf("Client %d: %s", id_client, message);
 
-        memcpy(tableau_messages[id_client][nombre_messages[id_client]],&message,sizeof(message));
 
+        //Stockage du message dans le tableau
+        memcpy(tableau_messages[id_client][nombre_messages[id_client]],&message,sizeof(message));
         nombre_messages[id_client]++;
 
- 
-
+        //envoi du message à tous les autres clients
         char str_num_client[BUFF_SIZE];
         sprintf(str_num_client, "%d", id_client);
         char reponse[BUFF_SIZE]="Client ";
@@ -83,13 +83,9 @@ void* client(void* arg){
         strcat(reponse," : ");
         strcat(reponse, message);
 
-
-
         for (int i=0;i<NB_CLIENTS;i++){
-
             if (tableau_id_socket[i]!=-10 && tableau_id_socket[i]!=tableau_id_socket[id_client]){
                 pthread_mutex_lock(&mutex_write);
-                //write(sservice, reponse, BUFF_SIZE);
                 write(tableau_id_socket[i], reponse, BUFF_SIZE);
                 pthread_mutex_unlock(&mutex_write);
             }
@@ -103,18 +99,19 @@ void* client(void* arg){
     pthread_exit(NULL); 
 }
 
+
 int main(){
     unlink("./MySocket");
-    int secoute, sservice;//file description
+    int secoute, sservice;
 
-    secoute = socket(AF_UNIX, SOCK_STREAM,0); //créer socket
+    secoute = socket(AF_UNIX, SOCK_STREAM,0);
 
-    struct sockaddr_un saddr={0}; //addresse socket du serveur struct sockaddr
+    struct sockaddr_un saddr={0};
     saddr.sun_family=AF_UNIX;
-    strcpy(saddr.sun_path,"./MySocket"); //socket = fichier local
+    strcpy(saddr.sun_path,"./MySocket");
 
-    struct sockaddr_un caddr={0}; //initialisation addresse client
-    socklen_t caddrlen = sizeof(caddr);
+    struct sockaddr_un caddr={0};
+    //socklen_t caddrlen = sizeof(caddr);
 
 
     if (secoute==-1){
@@ -122,13 +119,13 @@ int main(){
         exit(1);
     }
 
-    if(bind(secoute, (struct sockaddr*)&saddr,sizeof(saddr))==-1){ //associe socket à une addresse créée avant
+    if(bind(secoute, (struct sockaddr*)&saddr,sizeof(saddr))==-1){
         perror("Erreur bind");
         exit(1);
     }
 
     
-    if(listen(secoute,5)==-1){ //serveur en mode écoute, taille de la liste d'attente=5
+    if(listen(secoute,5)==-1){
         perror("Erreur listen");
         exit(1);
     }
@@ -146,7 +143,6 @@ int main(){
         printf("En attente de connexion.\n");
 
         socklen_t caddrlen = sizeof(caddr);
-
 
 		sservice = accept(secoute, (struct sockaddr*)&caddr,&caddrlen);
         

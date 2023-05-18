@@ -10,19 +10,18 @@
 
 
 #define BUFF_SIZE 1024
-#define NB_CLIENTS 5
-#define NB_MESSAGES 50
+#define NB_CLIENTS 5 //nombre maximal de clients 
+#define NB_MESSAGES 50 //nombre maximal de messages par client
 
-int sclient;
-int ind_att;
-char messages_en_attente[NB_CLIENTS*NB_MESSAGES][BUFF_SIZE]={{"\0"}};
-int nb_messages_en_attente;
+int sclient; //socket
+int ind_att; //indicateur : vaut 2 si on a fait un controle C et 0 sinon
+char messages_en_attente[NB_CLIENTS*NB_MESSAGES][BUFF_SIZE]={{"\0"}}; //liste des messages reçu pendant un controle C
+int nb_messages_en_attente = 0;
+int nb_messages_ecrits = 0;
 
 
 
-//volatile sig_atomic_t fils_termine = 0; //
-
-void attente(int sign){
+void attente(int sign){ //fonctionnement du contrôle C
     signal(sign, attente);
     ind_att = 2;
 }
@@ -36,48 +35,36 @@ void* lecture(void* arg){
     while(1){
         int indic=0;
 
-        // s'il y a un controle C
-        while(ind_att==2){
-            result_read=read(sclient,message,BUFF_SIZE);
-            if(result_read==-1){
-                perror("Erreur read");
-                pthread_exit(NULL);
-            }else if(result_read>0){
-            memcpy(messages_en_attente[nb_messages_en_attente],&message,sizeof(message));
-            nb_messages_en_attente++;
-            printf("message 1:%s",message);
-            indic=1;
-            }
-        }
-
         // lecture de la réponse du serveur
         result_read=read(sclient,message,BUFF_SIZE);
         if(result_read==-1){
-            perror("Erreur read");
+            perror("Erreur read\n");
             pthread_exit(NULL);
         }
 
         // s'il y a un controle C
         if(ind_att==2){
-            if (indic==0 && result_read>0){
+            if (result_read>0){
                 memcpy(messages_en_attente[nb_messages_en_attente],&message,sizeof(message));
                 nb_messages_en_attente++;
             }
         }
         while(ind_att==2){
-
             result_read=read(sclient,message,BUFF_SIZE);
             if(result_read==-1){
-                perror("Erreur read");
+                perror("Erreur read\n");
                 pthread_exit(NULL);
             }
-            if (indic==0 && result_read>0){
+            if (result_read>0){
                 memcpy(messages_en_attente[nb_messages_en_attente],&message,sizeof(message));
                 nb_messages_en_attente++;
-
+                indic=1;
             }
         }
-
+        if (indic){
+            memcpy(messages_en_attente[nb_messages_en_attente-1],"\0",1);
+        }
+        
         printf("\nMessage reçu : %s\n", message); 
     }  
     pthread_exit(NULL); 
@@ -90,6 +77,11 @@ void* ecriture(void* arg){
     char message[BUFF_SIZE];
 
     while(1){
+        if (nb_messages_ecrits>=NB_MESSAGES){
+            printf("Vous avez écrit trop de messages.\nVous ne pouvez plus écrire.\n");
+            pthread_exit(NULL);
+        }
+
         // lecture du message à envoyer
         printf("\nEntrez un message à envoyer : ");
         fgets(message, BUFF_SIZE, stdin);
@@ -100,39 +92,38 @@ void* ecriture(void* arg){
             perror("Erreur write");
             pthread_exit(NULL);
         }
+        nb_messages_ecrits++;
 
         // s'il y a eu un controle C
         if (ind_att==2){
             ind_att=0;
+
             for (int i=0; i<NB_MESSAGES*NB_CLIENTS;i++){
-                if (*messages_en_attente[i]!='\0')
-                {
+                if (strcmp(messages_en_attente[i],"\0")!=0){
                     printf("\nMessage reçu : %s\n", messages_en_attente[i]);
                     memcpy(messages_en_attente[i],"\0",1);
-                }
-                
+                } 
             }
         }
     }
-
     pthread_exit(NULL);
 }
 
 
 
 int main(){
-    struct sockaddr_un saddr={0}; //addresse socket du serveur struct sockaddr
+    struct sockaddr_un saddr={0};
     saddr.sun_family=AF_UNIX;
-    strcpy(saddr.sun_path,"./MySocket"); //socket = fichier local
+    strcpy(saddr.sun_path,"./MySocket");
 
-    sclient = socket(AF_UNIX, SOCK_STREAM,0); //créer socket
+    sclient = socket(AF_UNIX, SOCK_STREAM,0);
 
     if (sclient==-1){
         perror("Erreur socket");
         exit(1);
     }
 
-    while(connect(sclient,(struct sockaddr*)&saddr,sizeof(saddr))==-1); //répète la méthode connect tant que ça ne marche pas
+    while(connect(sclient,(struct sockaddr*)&saddr,sizeof(saddr))==-1);
     printf("Connexion établie\n");
 
     pthread_t thread_ecriture;
@@ -140,14 +131,14 @@ int main(){
 
     signal(SIGINT, attente);
 
-        if (pthread_create(&thread_ecriture, NULL, ecriture, (void*)&sclient) < 0) {
-            perror("Erreur pthread_create");
-            exit(1);
-            }
-        if (pthread_create(&thread_lecture, NULL, lecture, (void*)&sclient) < 0) {
-            perror("Erreur pthread_create");
-            exit(1);
-            }
+    if (pthread_create(&thread_ecriture, NULL, ecriture, (void*)&sclient) < 0) {
+        perror("Erreur pthread_create");
+        exit(1);
+    }
+    if (pthread_create(&thread_lecture, NULL, lecture, (void*)&sclient) < 0) {
+        perror("Erreur pthread_create");
+        exit(1);
+    }
     pthread_join(thread_ecriture,NULL);
     pthread_join(thread_lecture,NULL);
 
