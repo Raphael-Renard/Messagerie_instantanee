@@ -16,36 +16,16 @@ int sclient;
 int pid_fils;
 int ind_att;
 
+
 void attente(int sign){
     
-    //signal(sign,attente);
+    //signal(sign,attente);//
 
-    //wait(&status);
-    //if (waitpid(pid_fils,&status,0)==-1){
-    //if (wait(&status) == -1) {
-        //printf("erreur wait\n");
-        //exit(1);
-    //}
     ind_att = 2;
 
 
 }
 
-void ecriture(int sign){
-    char message[BUFF_SIZE];
-    //signal(sign,ecriture);
-    // lecture du message à envoyer
-    printf("\nEntrez un message à envoyer : ");
-    fgets(message, BUFF_SIZE, stdin);
-        
-    // envoi du message au serveur
-
-    if(write(sclient,message,BUFF_SIZE)==-1){
-        perror("Erreur write");
-        exit(1);
-    }
-
-}
 
 int main(){
     
@@ -73,9 +53,10 @@ int main(){
         int pid = fork();
         if (pid<0){
             printf("erreur fork\n");
-            pthread_exit(NULL);
+            exit(1);
         }
         else if (pid==0){//fils : on tape le message au clavier
+
             // lecture du message à envoyer
             printf("\nEntrez un message à envoyer : ");
             fgets(message, BUFF_SIZE, stdin);
@@ -92,15 +73,12 @@ int main(){
         }else{//pere : affichage des messages des autres
 
             if (ind_att==2){
-                    printf("aaa\n");
-                    int status;
-                    if (waitpid(pid_fils,&status,0) == -1) {
-                        printf("erreur wait\n");
-                        exit(1);
-                    }
-                    printf("bb\n");
-                    ind_att=0;
+                int status;
+                if (waitpid(pid_fils, &status, 0)==-1){
+                    printf("erreur");
                 }
+                ind_att = 0;
+            }
 
             // lecture de la réponse du serveur
             int read_result=read(sclient,message,BUFF_SIZE);
@@ -108,34 +86,25 @@ int main(){
                 perror("Erreur read");
                 exit(1);
             }
-            else if (read_result == 0) {
-                // La connexion avec le serveur est fermée
-                break;
-            }
+
+            //if (ind_att==2){
+                //int status;
+                //if (waitpid(pid_fils, &status, 0)==-1){
+                    //printf("erreur");
+                //}
+                //ind_att = 0;
+            //}
+
 
             printf("\nMessage reçu : %s\n", message);
-            //signal(SIGINT,attente);
+
             
         }
 
-
-        
-        //signal(SIGINT,ecriture);
-
-        // lecture de la réponse du serveur
-        //if(read(sclient,message,BUFF_SIZE)==-1){
-            //perror("Erreur read");
-            //exit(1);
-        //}
-
-        //printf("Message reçu : %s\n", message);
-
-        //write(sclient,message,BUFF_SIZE);
-        //read(sclient,message,BUFF_SIZE);
     }
  
     shutdown(sclient,SHUT_RDWR);
     close(sclient);
     
-    unlink("./MySocket");
+    //unlink("./MySocket");
 }
